@@ -163,79 +163,16 @@ print(sess.run(expr, feed_dict = {X: x_data}))
 
     === W ===
     
-
-
     ---------------------------------------------------------------------------
 
     FailedPreconditionError                   Traceback (most recent call last)
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
-       1364     try:
-    -> 1365       return fn(*args)
-       1366     except errors.OpError as e:
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run_fn(feed_dict, fetch_list, target_list, options, run_metadata)
-       1349       return self._call_tf_sessionrun(options, feed_dict, fetch_list,
-    -> 1350                                       target_list, run_metadata)
-       1351 
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _call_tf_sessionrun(self, options, feed_dict, fetch_list, target_list, run_metadata)
-       1442                                             fetch_list, target_list,
-    -> 1443                                             run_metadata)
-       1444 
-    
-
     FailedPreconditionError: Attempting to use uninitialized value Variable_6
     	 [[{{node _retval_Variable_6_0_0}}]]
-
-    
+         
     During handling of the above exception, another exception occurred:
     
-
     FailedPreconditionError                   Traceback (most recent call last)
-
-    <ipython-input-28-35ec44cfe278> in <module>
-          5 sess = tf.Session()
-          6 print("=== W ===")
-    ----> 7 print(sess.run(W))
-          8 print("=== b ===")
-          9 print(sess.run(b))
     
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
-        954     try:
-        955       result = self._run(None, fetches, feed_dict, options_ptr,
-    --> 956                          run_metadata_ptr)
-        957       if run_metadata:
-        958         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
-       1178     if final_fetches or final_targets or (handle and feed_dict_tensor):
-       1179       results = self._do_run(handle, final_targets, final_fetches,
-    -> 1180                              feed_dict_tensor, options, run_metadata)
-       1181     else:
-       1182       results = []
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
-       1357     if handle is None:
-       1358       return self._do_call(_run_fn, feeds, fetches, targets, options,
-    -> 1359                            run_metadata)
-       1360     else:
-       1361       return self._do_call(_prun_fn, handle, feeds, fetches)
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
-       1382                     '\nsession_config.graph_options.rewrite_options.'
-       1383                     'disable_meta_optimizer = True')
-    -> 1384       raise type(e)(node_def, op, message)
-       1385 
-       1386   def _extend_graph(self):
-    
-
     FailedPreconditionError: Attempting to use uninitialized value Variable_6
     	 [[{{node _retval_Variable_6_0_0}}]]
 
@@ -258,79 +195,17 @@ print(sess.run(expr, feed_dict = {X: x_data}))
 ```
 
     === W ===
-    
-
-
+   
     ---------------------------------------------------------------------------
 
     FailedPreconditionError                   Traceback (most recent call last)
 
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
-       1364     try:
-    -> 1365       return fn(*args)
-       1366     except errors.OpError as e:
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run_fn(feed_dict, fetch_list, target_list, options, run_metadata)
-       1349       return self._call_tf_sessionrun(options, feed_dict, fetch_list,
-    -> 1350                                       target_list, run_metadata)
-       1351 
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _call_tf_sessionrun(self, options, feed_dict, fetch_list, target_list, run_metadata)
-       1442                                             fetch_list, target_list,
-    -> 1443                                             run_metadata)
-       1444 
-    
-
     FailedPreconditionError: Attempting to use uninitialized value Variable_6
     	 [[{{node _retval_Variable_6_0_0}}]]
-
     
     During handling of the above exception, another exception occurred:
     
-
     FailedPreconditionError                   Traceback (most recent call last)
-
-    <ipython-input-25-b309fd3ba869> in <module>
-          5 sess = tf.Session()
-          6 print("=== W ===")
-    ----> 7 print(sess.run(W))
-          8 print("=== b ===")
-          9 print(sess.run(b))
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
-        954     try:
-        955       result = self._run(None, fetches, feed_dict, options_ptr,
-    --> 956                          run_metadata_ptr)
-        957       if run_metadata:
-        958         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
-       1178     if final_fetches or final_targets or (handle and feed_dict_tensor):
-       1179       results = self._do_run(handle, final_targets, final_fetches,
-    -> 1180                              feed_dict_tensor, options, run_metadata)
-       1181     else:
-       1182       results = []
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
-       1357     if handle is None:
-       1358       return self._do_call(_run_fn, feeds, fetches, targets, options,
-    -> 1359                            run_metadata)
-       1360     else:
-       1361       return self._do_call(_prun_fn, handle, feeds, fetches)
-    
-
-    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
-       1382                     '\nsession_config.graph_options.rewrite_options.'
-       1383                     'disable_meta_optimizer = True')
-    -> 1384       raise type(e)(node_def, op, message)
-       1385 
-       1386   def _extend_graph(self):
-    
 
     FailedPreconditionError: Attempting to use uninitialized value Variable_6
     	 [[{{node _retval_Variable_6_0_0}}]]
