@@ -1,0 +1,514 @@
+# CHAPTER 3
+## 목차
+1. [텐서와 그래프 실행](#텐서와-그래프-실행)<br>
+2. [플레이스홀더와 변수](#플레이스홀더와-변수)<br>
+3. [선형 회귀 모델 구현하기](#선형-회귀-모델-구현하기)<br><br>
+
+
+### 텐서와 그래프 실행
+
+
+```python
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+```
+
+우리는 텐서플로우 2.0버전을 사용하기 때문에 텐서플로우 2.0기능을 끄고 1.x기능을 켜는 문장을 집어넣어줬다.<br>
+텐서플로우 2.0에서는 세션이 사라졌지만, 책에서는 1.x버전을 사용하기 때문에 세션을 만들어주어야 한다.<br>
+세션은 만들어진 그래프? 노드?를 실제로 실행하는 역할을 한다.<br>
+세션의 run함수에 실행할 그래프를 매개변수로 주어 실행시킨다.<br>
+
+
+```python
+sess = tf.Session()
+```
+
+
+```python
+hello = tf.constant('Hello, TensorFlow!')
+print(hello)
+```
+
+    Tensor("Const_3:0", shape=(), dtype=string)
+    
+
+hello는 Tensor 자료형을 가진 변수이기 때문에 print하면 내부는 보이지 않고 변수의 정보를 출력한다.
+
+
+```python
+print(sess.run(hello))
+```
+
+    b'Hello, TensorFlow!'
+    
+
+session으로 실행을 시켜주면 비로소 실행 결과가 보인다.
+앞의 b는 byte stream이라는 의미.
+
+
+```python
+a = tf.constant(10)
+b = tf.constant(32)
+c = tf.add(a,b)
+print(c)
+print(sess.run([a,b,c]))
+print(sess.run(a+b))
+```
+
+    Tensor("Add_2:0", shape=(), dtype=int32)
+    [10, 32, 42]
+    42
+    
+
+연산은 add를 사용해도 되고 +를 이용해도 된다.<br><br>
+### 플레이스홀더와 변수
+플레이스 홀더는 매개변수라고 생각하면 된다.<br>
+물론 텐서플로우 2.0에서는 역시 사라진 개념이다. 플레이스 홀더가 사라진 대신 함수를 일단 정의하고 직접 함수에 매개변수로 전달하여 실행한다.
+
+
+```python
+X=tf.placeholder(tf.float32,[None,3])
+print(X)
+```
+
+    Tensor("Placeholder:0", shape=(?, 3), dtype=float32)
+    
+
+X는 매개변수를 위한 변수이기 때문에 값이 정해져있지 않다. 따라서 실행시 항상 feed_dict로 전달할 값을 지정해주어야 한다.<br>
+크기는 따로 정해주지 않아도 된다는 것을 알 수 있다.
+
+
+```python
+x_data=[[1,2,3],[4,5,6]]
+W=tf.Variable(tf.random_normal([3,2]))
+b=tf.Variable(tf.random_normal([2,1]))
+```
+
+Variable은 변수 자료형이다. 일반적으로 지금까지 배운 바로는 머신러닝에서 변수, 즉 값이 변하는 값이란 학습을 하면서 최적화 하는 변수를 의미하는 것 같다. 일단 가장 중요한 것은 일단 텐서플로우에서 모든 그래프는 생성이 되었을 뿐 실행이 되지는 않았다는 점이다. 따라서 변수에 값을 넣어주었다고 해서 그 값으로 변수가 초기화가 되어있다는 것이 아니다. 따라서 tf.gloval_variables_initializer()로 변수들의 값을 초기화시켜줘야 한다. 물론 이 작업 또한 session을 통해 실행시켜줘야 한다.<br>
+물론 2.0에서는 세션도 없고 자동으로 실행을 시켜주기 때문에 초기화를 해줄 필요 또한 없다.<br><br>
+추가적으로 W나 b에 반드시 random값을 넣어줘야 하는 것은 아니다. 아래와 같이 직접 값을 넣어줄 수도 있다.
+
+
+```python
+W = tf.Variable([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]])
+sess.run(tf.global_variables_initializer())
+print(sess.run(W))
+```
+
+    [[0.1 0.1]
+     [0.2 0.2]
+     [0.3 0.3]]
+    
+
+
+```python
+expr=tf.matmul(X,W)+b
+```
+
+matmul은 추측컨대 matrix multiple의 약자일 것으로 생각된다. 행렬 곱셈 함수이다.<br>
+expr은 우리가 세운 가설 함수이다. W*X + b.
+
+
+```python
+sess.run(tf.global_variables_initializer())
+
+print("=== x_data ===")
+print(x_data)
+print("=== W ===")
+print(sess.run(W))
+print("=== b ===")
+print(sess.run(b))
+```
+
+    === x_data ===
+    [[1, 2, 3], [4, 5, 6]]
+    === W ===
+    [[-7.8977889e-01 -9.3093608e-04]
+     [-9.3446606e-01 -3.7805134e-01]
+     [ 1.3650137e-01 -1.0400795e+00]]
+    === b ===
+    [[-0.96904457]
+     [-0.12426281]]
+    
+
+
+```python
+print("=== expr ===")
+print(sess.run(expr, feed_dict = {X: x_data}))
+
+sess.close()
+```
+
+    === expr ===
+    [[-3.2182512 -4.846317 ]
+     [-7.1367    -8.25872  ]]
+    
+
+여담으로 initializer을 사용하지 않았을 경우, 아래와 같이 에러가 발생한다. 변수를 초기화해주지 않아 값이 들어있지 않기 때문이다.
+
+
+```python
+W=tf.Variable(tf.random_normal([3,2]))
+b=tf.Variable(tf.random_normal([2,1]))
+expr=tf.matmul(X,W)+b
+
+sess = tf.Session()
+print("=== W ===")
+print(sess.run(W))
+print("=== b ===")
+print(sess.run(b))
+print("=== expr ===")
+print(sess.run(expr, feed_dict = {X: x_data}))
+```
+
+    === W ===
+    
+
+
+    ---------------------------------------------------------------------------
+
+    FailedPreconditionError                   Traceback (most recent call last)
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
+       1364     try:
+    -> 1365       return fn(*args)
+       1366     except errors.OpError as e:
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run_fn(feed_dict, fetch_list, target_list, options, run_metadata)
+       1349       return self._call_tf_sessionrun(options, feed_dict, fetch_list,
+    -> 1350                                       target_list, run_metadata)
+       1351 
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _call_tf_sessionrun(self, options, feed_dict, fetch_list, target_list, run_metadata)
+       1442                                             fetch_list, target_list,
+    -> 1443                                             run_metadata)
+       1444 
+    
+
+    FailedPreconditionError: Attempting to use uninitialized value Variable_6
+    	 [[{{node _retval_Variable_6_0_0}}]]
+
+    
+    During handling of the above exception, another exception occurred:
+    
+
+    FailedPreconditionError                   Traceback (most recent call last)
+
+    <ipython-input-28-35ec44cfe278> in <module>
+          5 sess = tf.Session()
+          6 print("=== W ===")
+    ----> 7 print(sess.run(W))
+          8 print("=== b ===")
+          9 print(sess.run(b))
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
+        954     try:
+        955       result = self._run(None, fetches, feed_dict, options_ptr,
+    --> 956                          run_metadata_ptr)
+        957       if run_metadata:
+        958         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
+       1178     if final_fetches or final_targets or (handle and feed_dict_tensor):
+       1179       results = self._do_run(handle, final_targets, final_fetches,
+    -> 1180                              feed_dict_tensor, options, run_metadata)
+       1181     else:
+       1182       results = []
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
+       1357     if handle is None:
+       1358       return self._do_call(_run_fn, feeds, fetches, targets, options,
+    -> 1359                            run_metadata)
+       1360     else:
+       1361       return self._do_call(_prun_fn, handle, feeds, fetches)
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
+       1382                     '\nsession_config.graph_options.rewrite_options.'
+       1383                     'disable_meta_optimizer = True')
+    -> 1384       raise type(e)(node_def, op, message)
+       1385 
+       1386   def _extend_graph(self):
+    
+
+    FailedPreconditionError: Attempting to use uninitialized value Variable_6
+    	 [[{{node _retval_Variable_6_0_0}}]]
+
+
+이는 W에 지정된 값을 넣어도 동일한 오류가 발생한다. random value를 넣어서 일어나는 문제가 아니라, 변수의 초기화를 하지 않아서 발생하는 문제이기 때문이다.
+
+
+```python
+W=tf.Variable([[0.1,0.1],[0.2,0.2],[0.3,0.3]])
+b=tf.Variable([0.1],[0.2])
+expr=tf.matmul(X,W)+b
+
+sess = tf.Session()
+print("=== W ===")
+print(sess.run(W))
+print("=== b ===")
+print(sess.run(b))
+print("=== expr ===")
+print(sess.run(expr, feed_dict = {X: x_data}))
+```
+
+    === W ===
+    
+
+
+    ---------------------------------------------------------------------------
+
+    FailedPreconditionError                   Traceback (most recent call last)
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
+       1364     try:
+    -> 1365       return fn(*args)
+       1366     except errors.OpError as e:
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run_fn(feed_dict, fetch_list, target_list, options, run_metadata)
+       1349       return self._call_tf_sessionrun(options, feed_dict, fetch_list,
+    -> 1350                                       target_list, run_metadata)
+       1351 
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _call_tf_sessionrun(self, options, feed_dict, fetch_list, target_list, run_metadata)
+       1442                                             fetch_list, target_list,
+    -> 1443                                             run_metadata)
+       1444 
+    
+
+    FailedPreconditionError: Attempting to use uninitialized value Variable_6
+    	 [[{{node _retval_Variable_6_0_0}}]]
+
+    
+    During handling of the above exception, another exception occurred:
+    
+
+    FailedPreconditionError                   Traceback (most recent call last)
+
+    <ipython-input-25-b309fd3ba869> in <module>
+          5 sess = tf.Session()
+          6 print("=== W ===")
+    ----> 7 print(sess.run(W))
+          8 print("=== b ===")
+          9 print(sess.run(b))
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
+        954     try:
+        955       result = self._run(None, fetches, feed_dict, options_ptr,
+    --> 956                          run_metadata_ptr)
+        957       if run_metadata:
+        958         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
+       1178     if final_fetches or final_targets or (handle and feed_dict_tensor):
+       1179       results = self._do_run(handle, final_targets, final_fetches,
+    -> 1180                              feed_dict_tensor, options, run_metadata)
+       1181     else:
+       1182       results = []
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
+       1357     if handle is None:
+       1358       return self._do_call(_run_fn, feeds, fetches, targets, options,
+    -> 1359                            run_metadata)
+       1360     else:
+       1361       return self._do_call(_prun_fn, handle, feeds, fetches)
+    
+
+    c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\client\session.py in _do_call(self, fn, *args)
+       1382                     '\nsession_config.graph_options.rewrite_options.'
+       1383                     'disable_meta_optimizer = True')
+    -> 1384       raise type(e)(node_def, op, message)
+       1385 
+       1386   def _extend_graph(self):
+    
+
+    FailedPreconditionError: Attempting to use uninitialized value Variable_6
+    	 [[{{node _retval_Variable_6_0_0}}]]
+
+
+
+```python
+sess.close()
+```
+
+session은 자주자주 close하여 정리하는 것이 좋다. run했던 기록이 쌓여있을 거라는 건피셜이 있었는데.. 정말 그런지는 추후 조사해보는 것으로..<br><br>
+### 선형 회귀 모델 구현하기
+이제 간단한 linear regression model을 구현해보자.<br>
+이름에서부터 알 수 있듯 가설이 linear한 regression 모델이다.(아마..? 내가 이해하기엔 그렇다)<br>
+
+
+```python
+x_data = [1,2,3]
+y_data = [1,2,3]
+
+W=tf.Variable(tf.random_uniform([1],-1.0,1.0))
+b=tf.Variable(tf.random_uniform([1],-1.0,1.0))
+```
+
+사실 random_uniform 내에 왜 [1]이 있는지 정말 고민했는데.. 확실한 답을 찾지는 못했지만 행렬의 shape를 정해준 것 같다.<br>
+추가) 건피셜로는 이게 맞다고 한다. 아마 내가 실험했을때의 결과를 봐서도 이게 맞는 것 같다.<br><br>
+아래 코드에서 쓰인 간단한 파이썬 문법에 대한 설명을 붙이자면,<br>
+```
+with a as b
+```
+a를 생성하여 b에 할당하고, 문단이 끝나면 자동으로 객체를 닫아준다!<br>
+session에 불필요한 정보가 쌓이지 않도록 with문을 사용해 세션을 만들어준다.<br>
+```
+a, b = [1, 2]
+```
+리스트 등으로 pack되어있는 정보를 uppack하여 저장할 수 있다.<br>
+이 때 주의할 점은 우선 원소의 갯수와 할당하는 변수의 개수가 일치해야 한다.<br>
+또한 필요 없는 위치의 정보는 버리기 위해 의미없는 변수 _에 저장하기도 한다.<br>
+이러한 기법은
+```
+a = [input() for _ in range(n)]
+```
+이런 경우에서도 많이 써봤으니 익숙한 개념이다.
+
+
+```python
+x_data = [1,2,3]
+y_data = [1,2,3]
+
+W=tf.Variable(tf.random_uniform([1],-1.0,1.0))
+b=tf.Variable(tf.random_uniform([1],-1.0,1.0))
+
+X=tf.placeholder(tf.float32,name="X")
+Y=tf.placeholder(tf.float32,name="Y")
+
+hypothesis = W*X + b
+
+cost = tf.reduce_mean(tf.square(hypothesis-Y))
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1)
+train_op = optimizer.minimize(cost)
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    
+    for step in range(100):
+        _, cost_val = sess.run([train_op,cost], feed_dict={X:x_data, Y:y_data})
+        
+        print(step,cost_val, sess.run(W), sess.run(b))
+        
+    print("\n=== Test ===")
+    print("X: 5, Y:", sess.run(hypothesis, feed_dict={X:5}))
+    print("X: 2.5, Y:", sess.run(hypothesis, feed_dict={X:2.5}))
+```
+
+    0 3.4178116 [1.0515113] [0.09595424]
+    1 0.04136069 [0.9650524] [0.05615889]
+    2 0.0010029075 [0.9752066] [0.05890614]
+    3 0.0004966602 [0.9747847] [0.05704227]
+    4 0.00046758726 [0.975502] [0.05571994]
+    5 0.0004453139 [0.97607887] [0.05437515]
+    6 0.00042416062 [0.9766552] [0.05306858]
+    7 0.000404011 [0.97721624] [0.05179279]
+    8 0.000384819 [0.97776395] [0.05054773]
+    9 0.00036654028 [0.9782985] [0.04933259]
+    10 0.0003491283 [0.9788202] [0.04814668]
+    11 0.00033254796 [0.97932935] [0.04698926]
+    12 0.00031674933 [0.9798263] [0.04585968]
+    13 0.00030170387 [0.9803112] [0.04475724]
+    14 0.00028737265 [0.98078454] [0.04368132]
+    15 0.00027372027 [0.9812464] [0.04263122]
+    16 0.0002607217 [0.9816973] [0.04160642]
+    17 0.00024833603 [0.98213726] [0.04060621]
+    18 0.00023653852 [0.98256665] [0.03963006]
+    19 0.00022530336 [0.98298573] [0.03867737]
+    20 0.00021460089 [0.98339474] [0.0377476]
+    21 0.00020440742 [0.9837939] [0.03684017]
+    22 0.00019469822 [0.98418355] [0.03595458]
+    23 0.000185451 [0.98456377] [0.03509025]
+    24 0.00017664244 [0.9849348] [0.03424669]
+    25 0.0001682506 [0.98529696] [0.03342343]
+    26 0.00016025863 [0.9856504] [0.03261996]
+    27 0.00015264707 [0.9859954] [0.03183581]
+    28 0.00014539453 [0.986332] [0.03107048]
+    29 0.00013848969 [0.9866606] [0.03032357]
+    30 0.00013191084 [0.9869813] [0.02959462]
+    31 0.00012564597 [0.98729426] [0.02888318]
+    32 0.000119675584 [0.9875997] [0.02818884]
+    33 0.000113991344 [0.98789775] [0.02751119]
+    34 0.00010857861 [0.98818874] [0.02684987]
+    35 0.00010341924 [0.9884726] [0.02620438]
+    36 9.850634e-05 [0.98874974] [0.02557447]
+    37 9.382792e-05 [0.9890202] [0.02495969]
+    38 8.937134e-05 [0.9892841] [0.02435965]
+    39 8.512521e-05 [0.9895417] [0.02377408]
+    40 8.108246e-05 [0.9897932] [0.02320258]
+    41 7.723096e-05 [0.9900385] [0.02264479]
+    42 7.356168e-05 [0.99027795] [0.02210043]
+    43 7.0067945e-05 [0.9905117] [0.02156918]
+    44 6.6739405e-05 [0.99073976] [0.02105065]
+    45 6.35696e-05 [0.9909624] [0.02054462]
+    46 6.055119e-05 [0.9911797] [0.02005076]
+    47 5.767401e-05 [0.99139166] [0.01956872]
+    48 5.4934262e-05 [0.99159867] [0.01909832]
+    49 5.232515e-05 [0.99180055] [0.01863919]
+    50 4.983993e-05 [0.9919977] [0.01819114]
+    51 4.7471945e-05 [0.99219006] [0.01775383]
+    52 4.521688e-05 [0.9923778] [0.01732706]
+    53 4.3068667e-05 [0.99256104] [0.01691052]
+    54 4.102335e-05 [0.99273986] [0.01650401]
+    55 3.9074785e-05 [0.9929144] [0.01610728]
+    56 3.7218775e-05 [0.9930847] [0.01572008]
+    57 3.545049e-05 [0.99325097] [0.01534217]
+    58 3.3766188e-05 [0.99341315] [0.01497333]
+    59 3.2163036e-05 [0.9935715] [0.01461341]
+    60 3.063528e-05 [0.9937261] [0.01426212]
+    61 2.9179784e-05 [0.9938769] [0.01391926]
+    62 2.7794116e-05 [0.9940241] [0.01358466]
+    63 2.647393e-05 [0.99416775] [0.01325808]
+    64 2.5216536e-05 [0.994308] [0.01293938]
+    65 2.4018109e-05 [0.9944448] [0.0126283]
+    66 2.2877344e-05 [0.99457836] [0.01232473]
+    67 2.1790502e-05 [0.99470866] [0.01202844]
+    68 2.0755484e-05 [0.99483585] [0.01173927]
+    69 1.976975e-05 [0.99496] [0.01145708]
+    70 1.8830933e-05 [0.9950812] [0.01118168]
+    71 1.793656e-05 [0.99519944] [0.01091288]
+    72 1.7084336e-05 [0.9953148] [0.01065052]
+    73 1.627289e-05 [0.9954274] [0.0103945]
+    74 1.5499552e-05 [0.99553734] [0.01014462]
+    75 1.4763351e-05 [0.9956446] [0.00990075]
+    76 1.4061988e-05 [0.99574935] [0.00966274]
+    77 1.3394704e-05 [0.9958516] [0.00943048]
+    78 1.2758086e-05 [0.99595124] [0.00920375]
+    79 1.2152058e-05 [0.99604857] [0.0089825]
+    80 1.1574822e-05 [0.9961436] [0.00876658]
+    81 1.1024778e-05 [0.99623626] [0.00855582]
+    82 1.0501283e-05 [0.99632674] [0.00835015]
+    83 1.0002622e-05 [0.996415] [0.00814941]
+    84 9.527536e-06 [0.99650127] [0.00795354]
+    85 9.074677e-06 [0.9965853] [0.00776231]
+    86 8.643893e-06 [0.99666744] [0.00757574]
+    87 8.232878e-06 [0.99674755] [0.00739362]
+    88 7.842211e-06 [0.9968257] [0.00721586]
+    89 7.4694785e-06 [0.996902] [0.0070424]
+    90 7.114817e-06 [0.9969765] [0.00687312]
+    91 6.776689e-06 [0.99704915] [0.00670789]
+    92 6.454679e-06 [0.99712014] [0.00654665]
+    93 6.1481637e-06 [0.99718934] [0.00638926]
+    94 5.856209e-06 [0.99725693] [0.00623568]
+    95 5.5782525e-06 [0.99732286] [0.00608577]
+    96 5.313011e-06 [0.9973872] [0.00593947]
+    97 5.0607973e-06 [0.99745] [0.0057967]
+    98 4.820207e-06 [0.9975113] [0.00565736]
+    99 4.5914076e-06 [0.9975712] [0.00552136]
+    
+    === Test ===
+    X: 5, Y: [4.993377]
+    X: 2.5, Y: [2.4994493]
+    
+
+주어진 X와 유사한 Y가 나올 수록 정확한 모델이다. 초기 랜덤 변수의 설정값에 따라? 운이 작용하여 성능차이가 있는 듯 하다..(좀 심하게)
