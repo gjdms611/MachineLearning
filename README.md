@@ -2,5 +2,5 @@
 "골빈 해커의 3분 딥러닝 텐서플로우맛"을 공부하는 과정입니다.<br>
 
 ## 일지
-[첫째날](./days/day1.md)<br>
-[둘째날](./days/day2.md)<br>
+[CHAPTER 3](./study/chapter3.md)<br>
+[CHAPTER 4](./study/chapter4.md)<br>
