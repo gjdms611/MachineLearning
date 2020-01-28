@@ -5,4 +5,4 @@
 [CHAPTER 3](./study/chapter3.md)<br>
 [CHAPTER 4](./study/chapter4.md)<br>
 [CHAPTER 5](./study/chapter5.md)<br>
-[CHAPTER 6](./study/chapter 6.md)<br>
+[CHAPTER 6](./study/chapter6.md)<br>
