@@ -39,7 +39,7 @@ n_class = 10
     WARNING:tensorflow:From c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\compat\v2_compat.py:65: disable_resource_variables (from tensorflow.python.ops.variable_scope) is deprecated and will be removed in a future version.
     Instructions for updating:
     non-resource variables are not supported in the long term
-    WARNING:tensorflow:From <ipython-input-1-2e2ba212ac1b>:6: read_data_sets (from tensorflow.examples.tutorials.mnist.input_data) is deprecated and will be removed in a future version.
+    WARNING:tensorflow:From <ipython-input-5-2e2ba212ac1b>:6: read_data_sets (from tensorflow.examples.tutorials.mnist.input_data) is deprecated and will be removed in a future version.
     Instructions for updating:
     Please use alternatives such as: tensorflow_datasets.load('mnist')
     WARNING:tensorflow:From c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\examples\tutorials\mnist\input_data.py:297: _maybe_download (from tensorflow.examples.tutorials.mnist.input_data) is deprecated and will be removed in a future version.
@@ -296,6 +296,8 @@ def make_batch(seq_data):
     return input_batch, target_batch
 ```
 
+원-핫 인코딩이기 때문에 알파벳 글자들의 배열 크기와 입-출력값이 같다. 따라서 손실함수 사용시 실측값인 labels값은 인덱스의 숫자를 그대로 사용하지만, 출력값은 원-핫 인코딩을 사용한다.
+
 
 ```python
 #########
@@ -362,6 +364,8 @@ outputs = tf.transpose(outputs, [1, 0, 2])
 outputs = outputs[-1]
 model = tf.matmul(outputs, W) + b
 ```
+
+make_batch()를 통해 원래 주어졌던 단어를 첫 3글자(입력값)와 마지막 한 글자(실측값)으로 분리하고, 이를 최적화를 실행하는 함수에 각각 넣어주었다.
 
 
 ```python
@@ -449,4 +453,357 @@ print('정확도:', accuracy_val)
     입력값: ['wor ', 'woo ', 'dee ', 'div ', 'col ', 'coo ', 'loa ', 'lov ', 'kis ', 'kin ']
     예측값: ['word', 'wood', 'deep', 'dive', 'cold', 'cool', 'load', 'love', 'kiss', 'kind']
     정확도: 1.0
+    
+
+### Sequence to Sequence
+Sequence to Sequence(Seq2Seq)는 구글이 기계 번역에 사용하는 신경망 모델이다. RNN과 출력 신경망을 조합하여 문장을 입력받아 다른 문장을 출력하는 프로그램에서 많이 사용한다.<br>
+![Sequence to Sequence의 개념도](../image/Seq2Seq개념도.png)<br>
+크게 입력에 사용되는 신경망인 인코더와 출력에 사용되는 신경망인 디코더로 구성된다.<br>
+우리는 네글자의 영단어를 받아 두 글자의 한글로 번역하는 프로그램을 만들 것인데, 아마도 10.2에서와 마찬가지로 가변길이 모델을 사용할 경우에 신경써야 할 것이 많으므로 일단 고정 길이 단어만을 사용하는 모델을 만들어 보는 것이라 생각된다.<br>
+![Sequence to Sequence 번역 모델](../image/ch10-06-seq2seq-translate-model.jpg)<br>
+여기서 중요한 것은 디코더의 입력 시작을 알리는 심볼, 그리고 디코더의 출력이 끝남을 알리는 심볼, 빈 데이터에 사용하는 의미 없는 심볼 세가지가 필요하다. 여기서는 'S', 'E', 'P'로 처리한다.
+
+
+```python
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+import numpy as np
+```
+
+    WARNING:tensorflow:From c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\compat\v2_compat.py:65: disable_resource_variables (from tensorflow.python.ops.variable_scope) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    non-resource variables are not supported in the long term
+    
+
+char_arr는 심볼, 영어 알파벳, 한글들이 각각 한글자 씩 이루어진 배열이다.
+num_dic을 통해 연관배열을 만들어두었다.
+
+
+```python
+# 챗봇, 번역, 이미지 캡셔닝등에 사용되는 시퀀스 학습/생성 모델인 Seq2Seq 을 구현해봅니다.
+# 영어 단어를 한국어 단어로 번역하는 프로그램을 만들어봅니다.
+
+# S: 디코딩 입력의 시작을 나타내는 심볼
+# E: 디코딩 출력을 끝을 나타내는 심볼
+# P: 현재 배치 데이터의 time step 크기보다 작은 경우 빈 시퀀스를 채우는 심볼
+#    예) 현재 배치 데이터의 최대 크기가 4 인 경우
+#       word -> ['w', 'o', 'r', 'd']
+#       to   -> ['t', 'o', 'P', 'P']
+char_arr = [c for c in 'SEPabcdefghijklmnopqrstuvwxyz단어나무놀이소녀키스사랑']
+num_dic = {n: i for i, n in enumerate(char_arr)}
+dic_len = len(num_dic)
+
+# 영어를 한글로 번역하기 위한 학습 데이터
+seq_data = [['word', '단어'], ['wood', '나무'],
+            ['game', '놀이'], ['girl', '소녀'],
+            ['kiss', '키스'], ['love', '사랑']]
+```
+
+인코더 셀은 그냥 단어가 한 글자씩 떨어져있는 배열을 입력값으로 넣어준다.<br>
+디코더 셀의 입력값을 줄 때는 가장 앞에 시작을 나타내는 심볼값을 붙여주고 넣어주어야 한다!<br>
+출력값 또한 출력을 한 이후 마지막에 끝을 알리는 심볼값을 붙여준다.<br>
+이렇게 만들어진 데이터를 원-핫인코딩을 하는데, 손실함수로 sparse를 사용하기 때문에 디코더 셀의 출력값만 원-핫 인코딩이 아닌 인덱스 그대로를 사용한다.<br>
+np.eye(dic_len)[input]은 dic_len의 input번째 인덱스에 해당하는 열을.. 가져오는 것으로 보인다..[참고](https://stackoverflow.com/questions/46126914/what-does-np-eyennparray-mean)
+
+
+```python
+def make_batch(seq_data):
+    input_batch = []
+    output_batch = []
+    target_batch = []
+
+    for seq in seq_data:
+        # 인코더 셀의 입력값. 입력단어의 글자들을 한글자씩 떼어 배열로 만든다.
+        input = [num_dic[n] for n in seq[0]]
+        # 디코더 셀의 입력값. 시작을 나타내는 S 심볼을 맨 앞에 붙여준다.
+        output = [num_dic[n] for n in ('S' + seq[1])]
+        # 학습을 위해 비교할 디코더 셀의 출력값. 끝나는 것을 알려주기 위해 마지막에 E 를 붙인다.
+        target = [num_dic[n] for n in (seq[1] + 'E')]
+        input_batch.append(np.eye(dic_len)[input])
+        output_batch.append(np.eye(dic_len)[output])
+        # 출력값만 one-hot 인코딩이 아님 (sparse_softmax_cross_entropy_with_logits 사용)
+        target_batch.append(target)
+
+    return input_batch, output_batch, target_batch
+```
+
+
+```python
+#########
+# 옵션 설정
+######
+learning_rate = 0.01
+n_hidden = 128
+total_epoch = 100
+# 입력과 출력의 형태가 one-hot 인코딩으로 같으므로 크기도 같다.
+n_class = n_input = dic_len
+```
+
+디코더의 출력값은 원-핫 인코딩이 아니므로 차원 수가 하나 적다. 앞에서 했던 10.2와 비슷한 느낌이 든다.<br>
+가변길이 단어를 넣을 때에도 같은 배치에 입력되는 데이터는 글자수(단계수, time steps)가 모두 동일해야 한다는 점에 주의하라.<br>
+따라서 가장 긴 단어의 길이에 맞춰 짧은 단어에는 의미없는 값으로 채워 사용해야 한다.
+
+
+```python
+#########
+# 신경망 모델 구성
+######
+# Seq2Seq 모델은 인코더의 입력과 디코더의 입력의 형식이 같다.
+# [batch size, time steps, input size]
+enc_input = tf.placeholder(tf.float32, [None, None, n_input])
+dec_input = tf.placeholder(tf.float32, [None, None, n_input])
+# [batch size, time steps]
+targets = tf.placeholder(tf.int64, [None, None])
+```
+
+셀은 기본 RNNcell을 사용하고, 드롭아웃을 적용했다.
+
+
+```python
+# 인코더 셀을 구성한다.
+with tf.variable_scope('encode'):
+    enc_cell = tf.nn.rnn_cell.BasicRNNCell(n_hidden)
+    enc_cell = tf.nn.rnn_cell.DropoutWrapper(enc_cell, output_keep_prob=0.5)
+
+    outputs, enc_states = tf.nn.dynamic_rnn(enc_cell, enc_input,
+                                            dtype=tf.float32)
+```
+
+    WARNING:tensorflow:From <ipython-input-6-3df553f12afd>:3: BasicRNNCell.__init__ (from tensorflow.python.ops.rnn_cell_impl) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    This class is equivalent as tf.keras.layers.SimpleRNNCell, and will be replaced by that in Tensorflow 2.0.
+    WARNING:tensorflow:From <ipython-input-6-3df553f12afd>:7: dynamic_rnn (from tensorflow.python.ops.rnn) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    Please use `keras.layers.RNN(cell)`, which is equivalent to this API
+    WARNING:tensorflow:From c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\ops\rnn_cell_impl.py:456: Layer.add_variable (from tensorflow.python.keras.engine.base_layer) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    Please use `layer.add_weight` method instead.
+    WARNING:tensorflow:From c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\ops\rnn_cell_impl.py:460: calling Zeros.__init__ (from tensorflow.python.ops.init_ops) with dtype is deprecated and will be removed in a future version.
+    Instructions for updating:
+    Call initializer instance with the dtype argument instead of passing it to the constructor
+    
+
+디코더의 초기 상태값을 인코더 셀의 최종 상태값으로 넣어주는것이 중요하다. 이는 인코더의 결과값을 디코더로 그대로 전파한다는 것이 핵심 아이디어이기 때문이다.
+
+
+```python
+# 디코더 셀을 구성한다.
+with tf.variable_scope('decode'):
+    dec_cell = tf.nn.rnn_cell.BasicRNNCell(n_hidden)
+    dec_cell = tf.nn.rnn_cell.DropoutWrapper(dec_cell, output_keep_prob=0.5)
+
+    # Seq2Seq 모델은 인코더 셀의 최종 상태값을
+    # 디코더 셀의 초기 상태값으로 넣어주는 것이 핵심.
+    outputs, dec_states = tf.nn.dynamic_rnn(dec_cell, dec_input,
+                                            initial_state=enc_states,
+                                            dtype=tf.float32)
+```
+
+고수준 API에서는 가중치와 편향값을 따로 선언하지 않아도 알아서 처리해준다.<br>
+출력층으로 layers 모듈의 dense함수를 사용했다.
+
+
+```python
+model = tf.layers.dense(outputs, n_class, activation=None)
+
+
+cost = tf.reduce_mean(
+            tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=model, labels=targets))
+
+optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
+```
+
+    WARNING:tensorflow:From <ipython-input-8-9f079d4ab947>:1: dense (from tensorflow.python.layers.core) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    Use keras.layers.Dense instead.
+    WARNING:tensorflow:From c:\users\infinite\appdata\local\programs\python\python37\lib\site-packages\tensorflow_core\python\layers\core.py:187: Layer.apply (from tensorflow.python.keras.engine.base_layer) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    Please use `layer.__call__` method instead.
+    
+
+
+```python
+#########
+# 신경망 모델 학습
+######
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+
+input_batch, output_batch, target_batch = make_batch(seq_data)
+
+for epoch in range(total_epoch):
+    _, loss = sess.run([optimizer, cost],
+                       feed_dict={enc_input: input_batch,
+                                  dec_input: output_batch,
+                                  targets: target_batch})
+
+    print('Epoch:', '%04d' % (epoch + 1),
+          'cost =', '{:.6f}'.format(loss))
+
+print('최적화 완료!')
+```
+
+    Epoch: 0001 cost = 3.674479
+    Epoch: 0002 cost = 2.479297
+    Epoch: 0003 cost = 1.520522
+    Epoch: 0004 cost = 1.038995
+    Epoch: 0005 cost = 0.582069
+    Epoch: 0006 cost = 0.366857
+    Epoch: 0007 cost = 0.556101
+    Epoch: 0008 cost = 0.325730
+    Epoch: 0009 cost = 0.356730
+    Epoch: 0010 cost = 0.264025
+    Epoch: 0011 cost = 0.156761
+    Epoch: 0012 cost = 0.259366
+    Epoch: 0013 cost = 0.093891
+    Epoch: 0014 cost = 0.129076
+    Epoch: 0015 cost = 0.073512
+    Epoch: 0016 cost = 0.089568
+    Epoch: 0017 cost = 0.031112
+    Epoch: 0018 cost = 0.161636
+    Epoch: 0019 cost = 0.205166
+    Epoch: 0020 cost = 0.072264
+    Epoch: 0021 cost = 0.055341
+    Epoch: 0022 cost = 0.239943
+    Epoch: 0023 cost = 0.115363
+    Epoch: 0024 cost = 0.015077
+    Epoch: 0025 cost = 0.011432
+    Epoch: 0026 cost = 0.060616
+    Epoch: 0027 cost = 0.015219
+    Epoch: 0028 cost = 0.030512
+    Epoch: 0029 cost = 0.134052
+    Epoch: 0030 cost = 0.025838
+    Epoch: 0031 cost = 0.071431
+    Epoch: 0032 cost = 0.017080
+    Epoch: 0033 cost = 0.075347
+    Epoch: 0034 cost = 0.027607
+    Epoch: 0035 cost = 0.018805
+    Epoch: 0036 cost = 0.008196
+    Epoch: 0037 cost = 0.002217
+    Epoch: 0038 cost = 0.004628
+    Epoch: 0039 cost = 0.009572
+    Epoch: 0040 cost = 0.010713
+    Epoch: 0041 cost = 0.009346
+    Epoch: 0042 cost = 0.014441
+    Epoch: 0043 cost = 0.005560
+    Epoch: 0044 cost = 0.003078
+    Epoch: 0045 cost = 0.011448
+    Epoch: 0046 cost = 0.002706
+    Epoch: 0047 cost = 0.002102
+    Epoch: 0048 cost = 0.009892
+    Epoch: 0049 cost = 0.004104
+    Epoch: 0050 cost = 0.014104
+    Epoch: 0051 cost = 0.001953
+    Epoch: 0052 cost = 0.001580
+    Epoch: 0053 cost = 0.003825
+    Epoch: 0054 cost = 0.001264
+    Epoch: 0055 cost = 0.002244
+    Epoch: 0056 cost = 0.000938
+    Epoch: 0057 cost = 0.001309
+    Epoch: 0058 cost = 0.000429
+    Epoch: 0059 cost = 0.001979
+    Epoch: 0060 cost = 0.004742
+    Epoch: 0061 cost = 0.001362
+    Epoch: 0062 cost = 0.001257
+    Epoch: 0063 cost = 0.006353
+    Epoch: 0064 cost = 0.002859
+    Epoch: 0065 cost = 0.001253
+    Epoch: 0066 cost = 0.000782
+    Epoch: 0067 cost = 0.000870
+    Epoch: 0068 cost = 0.000351
+    Epoch: 0069 cost = 0.001823
+    Epoch: 0070 cost = 0.002253
+    Epoch: 0071 cost = 0.001991
+    Epoch: 0072 cost = 0.001414
+    Epoch: 0073 cost = 0.000698
+    Epoch: 0074 cost = 0.001754
+    Epoch: 0075 cost = 0.000239
+    Epoch: 0076 cost = 0.000547
+    Epoch: 0077 cost = 0.000767
+    Epoch: 0078 cost = 0.000414
+    Epoch: 0079 cost = 0.000646
+    Epoch: 0080 cost = 0.000524
+    Epoch: 0081 cost = 0.000327
+    Epoch: 0082 cost = 0.001222
+    Epoch: 0083 cost = 0.000449
+    Epoch: 0084 cost = 0.000613
+    Epoch: 0085 cost = 0.000733
+    Epoch: 0086 cost = 0.000189
+    Epoch: 0087 cost = 0.000902
+    Epoch: 0088 cost = 0.001003
+    Epoch: 0089 cost = 0.000368
+    Epoch: 0090 cost = 0.000957
+    Epoch: 0091 cost = 0.000534
+    Epoch: 0092 cost = 0.000260
+    Epoch: 0093 cost = 0.000188
+    Epoch: 0094 cost = 0.000338
+    Epoch: 0095 cost = 0.000794
+    Epoch: 0096 cost = 0.000504
+    Epoch: 0097 cost = 0.000389
+    Epoch: 0098 cost = 0.000612
+    Epoch: 0099 cost = 0.000274
+    Epoch: 0100 cost = 0.000715
+    최적화 완료!
+    
+
+어려웠던 점은 앞에서는 단어+심볼로 이루어진 3크기의 배열을 사용했는데, 여기서는 'PPPP'가 들어갔으니 5크기의 배열이 만들어졌을 것이라는 점이었다. 그렇지만 input배열의 shape는 [batch size, time steps, input size]인데.. batchsize는 batch만큼 append하므로 괜찮을 것이고, timesteps와 input size는 input배열의 갯수만큼 dic_len길이의 1차원 배열을 붙여준 것일 테니 이렇게 이해하면 되는데..<br>
+이렇게 하면 input배열의 갯수와 output배열의 갯수가 서로 일치하지 않은데 괜찮느냐는 의문이 든다. 이건 time steps가 달라지는 것이므로 괜찮은 것이 되는 것 같다.<br>
+이를 확인하기 위해 'E'이후를 제거하기 이전의 decoded배열을 출력해보았더니, 내 예상처럼 5크기의 배열이 만들어지는 모습을 볼 수 있었다. 이를 통해 디코더의 입-출력 time_step또한 배열 길이+1이 된다는 것을 알 수 있다.
+
+
+```python
+#########
+# 번역 테스트
+######
+# 단어를 입력받아 번역 단어를 예측하고 디코딩하는 함수
+def translate(word):
+    # 이 모델은 입력값과 출력값 데이터로 [영어단어, 한글단어] 사용하지만,
+    # 예측시에는 한글단어를 알지 못하므로, 디코더의 입출력값을 의미 없는 값인 P 값으로 채운다.
+    # ['word', 'PPPP']
+    seq_data = [word, 'P' * len(word)]
+
+    input_batch, output_batch, target_batch = make_batch([seq_data])
+
+    # 결과가 [batch size, time step, input] 으로 나오기 때문에,
+    # 2번째 차원인 input 차원을 argmax 로 취해 가장 확률이 높은 글자를 예측 값으로 만든다.
+    prediction = tf.argmax(model, 2)
+
+    result = sess.run(prediction,
+                      feed_dict={enc_input: input_batch,
+                                 dec_input: output_batch,
+                                 targets: target_batch})
+
+    # 결과 값인 숫자의 인덱스에 해당하는 글자를 가져와 글자 배열을 만든다.
+    decoded = [char_arr[i] for i in result[0]]
+    print(decoded)
+
+    # 출력의 끝을 의미하는 'E' 이후의 글자들을 제거하고 문자열로 만든다.
+    end = decoded.index('E')
+    translated = ''.join(decoded[:end])
+
+    return translated
+
+
+print('\n=== 번역 테스트 ===')
+
+print('word ->', translate('word'))
+print('wodr ->', translate('wodr'))
+print('love ->', translate('love'))
+print('loev ->', translate('loev'))
+print('abcd ->', translate('abcd'))
+```
+
+    
+    === 번역 테스트 ===
+    ['단', '어', 'E', '나', 'E']
+    word -> 단어
+    ['나', '무', 'E', '무', 'E']
+    wodr -> 나무
+    ['사', '랑', 'E', '나', '무']
+    love -> 사랑
+    ['사', '랑', 'E', '나', '무']
+    loev -> 사랑
+    ['소', '녀', 'E', '이', 'E']
+    abcd -> 소녀
     
